@@ -2,6 +2,9 @@
 
 A fully self-contained bingo game designed to run on a large screen at a social club. No server, no dependencies, no build step — just open `index.html` in a browser and play.
 
+![Bingo Game](image.png)
+![Card Print](image-1.png)
+
 ## Features
 
 - **Two game types** — 75-ball (American) and 90-ball (UK)
