@@ -1,0 +1,933 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>BINGO</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg: #1a1a2e;
+    --panel: #16213e;
+    --accent: #e94560;
+    --gold: #f5c518;
+    --green: #27ae60;
+    --blue: #2980b9;
+    --purple: #8e44ad;
+    --orange: #e67e22;
+    --red: #c0392b;
+    --text: #ecf0f1;
+    --muted: #7f8c8d;
+    --ball-size: 160px;
+  }
+
+  body {
+    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    overflow-x: hidden;
+    user-select: none;
+  }
+
+  /* ── HEADER ── */
+  header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px 24px;
+    background: var(--panel);
+    border-bottom: 2px solid var(--accent);
+  }
+  header h1 {
+    font-size: 1.8rem;
+    letter-spacing: 6px;
+    color: var(--gold);
+    text-shadow: 0 0 20px rgba(245,197,24,0.3);
+  }
+  .header-controls { display: flex; gap: 12px; align-items: center; }
+  .header-controls label { font-size: 0.85rem; color: var(--muted); }
+  .header-controls select {
+    background: var(--bg);
+    color: var(--text);
+    border: 1px solid var(--muted);
+    border-radius: 6px;
+    padding: 6px 10px;
+    font-size: 0.9rem;
+    cursor: pointer;
+  }
+
+  .btn {
+    padding: 10px 22px;
+    border: none;
+    border-radius: 8px;
+    font-size: 1rem;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.2s;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+  }
+  .btn:hover { transform: translateY(-2px); filter: brightness(1.15); }
+  .btn:active { transform: translateY(0); }
+  .btn-danger { background: var(--accent); color: #fff; }
+  .btn-primary { background: var(--green); color: #fff; }
+
+  /* ── MAIN LAYOUT ── */
+  .main {
+    display: grid;
+    grid-template-columns: 340px 1fr;
+    gap: 0;
+    min-height: calc(100vh - 58px);
+  }
+
+  /* ── SPIN PANEL (left) ── */
+  .spin-panel {
+    background: var(--panel);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 30px 20px;
+    border-right: 2px solid rgba(255,255,255,0.05);
+    gap: 24px;
+  }
+
+  /* Tumbler */
+  .tumbler {
+    width: 260px;
+    height: 260px;
+    border-radius: 50%;
+    border: 4px solid var(--gold);
+    position: relative;
+    overflow: hidden;
+    background: radial-gradient(circle at 40% 40%, #2c3e6d, #0f1629);
+    box-shadow: 0 0 40px rgba(245,197,24,0.15), inset 0 0 60px rgba(0,0,0,0.5);
+  }
+  .tumbler-ball {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    position: absolute;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.65rem;
+    font-weight: 800;
+    color: #000;
+    text-shadow: 0 1px 0 rgba(255,255,255,0.3);
+    box-shadow: inset -2px -2px 4px rgba(0,0,0,0.3), 1px 1px 3px rgba(0,0,0,0.4);
+  }
+  .tumbler.spinning .tumbler-ball { animation: tumble var(--duration) ease-in-out forwards; }
+  @keyframes tumble {
+    0%   { transform: translate(0, 0) rotate(0deg); }
+    15%  { transform: translate(var(--dx1), var(--dy1)) rotate(180deg); }
+    30%  { transform: translate(var(--dx2), var(--dy2)) rotate(360deg); }
+    50%  { transform: translate(var(--dx3), var(--dy3)) rotate(540deg); }
+    70%  { transform: translate(var(--dx2), var(--dy1)) rotate(720deg); }
+    85%  { transform: translate(var(--dx1), var(--dy3)) rotate(900deg); }
+    100% { transform: translate(0, 0) rotate(1080deg); }
+  }
+
+  /* Called ball display */
+  .called-ball-area {
+    height: 200px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+  }
+  .called-ball {
+    width: var(--ball-size);
+    height: var(--ball-size);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 3.5rem;
+    font-weight: 900;
+    color: #fff;
+    text-shadow: 0 2px 4px rgba(0,0,0,0.5);
+    box-shadow: 0 8px 32px rgba(0,0,0,0.4), inset 0 -4px 8px rgba(0,0,0,0.3), inset 0 4px 8px rgba(255,255,255,0.2);
+    opacity: 0;
+    transform: scale(0);
+    transition: all 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    position: relative;
+  }
+  .called-ball.visible {
+    opacity: 1;
+    transform: scale(1);
+  }
+  .called-ball .ball-letter {
+    position: absolute;
+    top: 14px;
+    font-size: 1.1rem;
+    font-weight: 700;
+    opacity: 0.8;
+  }
+  .called-ball .ball-number {
+    margin-top: 8px;
+  }
+  .call-phrase {
+    font-size: 1.3rem;
+    font-weight: 700;
+    color: var(--gold);
+    text-align: center;
+    min-height: 2em;
+    opacity: 0;
+    transform: translateY(10px);
+    transition: all 0.4s ease;
+    text-shadow: 0 0 20px rgba(245,197,24,0.3);
+    padding: 0 10px;
+  }
+  .call-phrase.visible {
+    opacity: 1;
+    transform: translateY(0);
+  }
+
+  .spin-btn {
+    width: 200px;
+    height: 60px;
+    font-size: 1.5rem;
+    letter-spacing: 4px;
+    background: linear-gradient(135deg, var(--accent), #c0392b);
+    color: #fff;
+    border: none;
+    border-radius: 30px;
+    cursor: pointer;
+    font-weight: 900;
+    box-shadow: 0 6px 20px rgba(233,69,96,0.4);
+    transition: all 0.2s;
+  }
+  .spin-btn:hover:not(:disabled) { transform: scale(1.05); box-shadow: 0 8px 30px rgba(233,69,96,0.6); }
+  .spin-btn:active:not(:disabled) { transform: scale(0.97); }
+  .spin-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+  .called-count {
+    font-size: 0.95rem;
+    color: var(--muted);
+  }
+
+  /* ── BOARD (right) ── */
+  .board-area {
+    padding: 20px 28px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+  .board-header-row {
+    display: grid;
+    gap: 4px;
+    text-align: center;
+  }
+  .board-header-row.cols-5 { grid-template-columns: repeat(5, 1fr); }
+  .board-header-row.cols-9 { grid-template-columns: repeat(9, 1fr); }
+  .board-header-cell {
+    padding: 8px 0;
+    font-size: 1.4rem;
+    font-weight: 900;
+    letter-spacing: 2px;
+    border-radius: 6px 6px 0 0;
+  }
+
+  .board-grid {
+    display: grid;
+    gap: 4px;
+  }
+  .board-grid.cols-5 { grid-template-columns: repeat(5, 1fr); }
+  .board-grid.cols-9 { grid-template-columns: repeat(9, 1fr); }
+
+  .board-cell {
+    aspect-ratio: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 6px;
+    font-size: 1.4rem;
+    font-weight: 700;
+    background: rgba(255,255,255,0.03);
+    color: rgba(255,255,255,0.18);
+    transition: all 0.3s ease;
+    max-height: 56px;
+    border: 2px solid transparent;
+  }
+  .board-cell.called {
+    color: #fff;
+    font-weight: 900;
+    transform: scale(1.05);
+    box-shadow: 0 2px 14px rgba(0,0,0,0.4), 0 0 12px var(--glow, rgba(255,255,255,0.25));
+    border-color: rgba(255,255,255,0.5);
+    text-shadow: 0 0 6px rgba(255,255,255,0.4);
+  }
+  .board-cell.just-called {
+    animation: popIn 0.6s ease;
+  }
+  @keyframes popIn {
+    0% { transform: scale(0.5); }
+    50% { transform: scale(1.15); }
+    100% { transform: scale(1.02); }
+  }
+
+  /* Column colours for 75-ball */
+  .col-b { background: var(--blue); }
+  .col-i { background: var(--red); }
+  .col-n { background: var(--purple); }
+  .col-g { background: var(--green); }
+  .col-o { background: var(--orange); }
+
+  .col-b.cell-bg { background: rgba(41,128,185,0.08); }
+  .col-i.cell-bg { background: rgba(192,57,43,0.08); }
+  .col-n.cell-bg { background: rgba(142,68,173,0.08); }
+  .col-g.cell-bg { background: rgba(39,174,96,0.08); }
+  .col-o.cell-bg { background: rgba(230,126,34,0.08); }
+  .col-b.called { background: var(--blue); --glow: rgba(41,128,185,0.5); }
+  .col-i.called { background: var(--red); --glow: rgba(192,57,43,0.5); }
+  .col-n.called { background: var(--purple); --glow: rgba(142,68,173,0.5); }
+  .col-g.called { background: var(--green); --glow: rgba(39,174,96,0.5); }
+  .col-o.called { background: var(--orange); --glow: rgba(230,126,34,0.5); }
+
+  /* 90-ball decade colours */
+  .dec-0 { --c: #e74c3c; } .dec-1 { --c: #e67e22; } .dec-2 { --c: #f1c40f; }
+  .dec-3 { --c: #2ecc71; } .dec-4 { --c: #1abc9c; } .dec-5 { --c: #3498db; }
+  .dec-6 { --c: #9b59b6; } .dec-7 { --c: #e84393; } .dec-8 { --c: #fd79a8; }
+  [class*="dec-"].called { background: var(--c); --glow: var(--c); }
+  [class*="dec-"].cell-bg { background: color-mix(in srgb, var(--c) 6%, transparent); }
+  .dec-header { background: var(--c); }
+
+  /* Last called list */
+  .last-called-strip {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    padding: 10px 0;
+    flex-wrap: wrap;
+  }
+  .last-called-strip .mini-ball {
+    width: 44px;
+    height: 44px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 800;
+    font-size: 0.85rem;
+    color: #fff;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+  }
+  .last-called-label {
+    font-size: 0.85rem;
+    color: var(--muted);
+    font-weight: 600;
+    margin-right: 4px;
+  }
+
+  /* ── NEW GAME OVERLAY ── */
+  .overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.85);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 100;
+    backdrop-filter: blur(6px);
+  }
+  .overlay.hidden { display: none; }
+  .overlay-box {
+    background: var(--panel);
+    border: 2px solid var(--gold);
+    border-radius: 16px;
+    padding: 48px;
+    text-align: center;
+    display: flex;
+    flex-direction: column;
+    gap: 28px;
+    max-width: 440px;
+  }
+  .overlay-box h2 {
+    font-size: 2rem;
+    color: var(--gold);
+    letter-spacing: 4px;
+  }
+  .game-type-btns { display: flex; gap: 16px; justify-content: center; }
+  .game-type-btn {
+    padding: 20px 36px;
+    border: 3px solid var(--muted);
+    border-radius: 12px;
+    background: transparent;
+    color: var(--text);
+    font-size: 1.2rem;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  .game-type-btn:hover { border-color: var(--gold); color: var(--gold); background: rgba(245,197,24,0.08); }
+  .game-type-btn.selected { border-color: var(--gold); background: rgba(245,197,24,0.15); color: var(--gold); }
+
+  .confirm-overlay { display: none; }
+  .confirm-overlay.show {
+    display: flex;
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.7);
+    align-items: center;
+    justify-content: center;
+    z-index: 200;
+  }
+  .confirm-box {
+    background: var(--panel);
+    border: 2px solid var(--accent);
+    border-radius: 12px;
+    padding: 36px;
+    text-align: center;
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+  }
+  .confirm-box p { font-size: 1.1rem; }
+  .confirm-btns { display: flex; gap: 12px; justify-content: center; }
+
+  /* ── Responsive ── */
+  @media (max-width: 900px) {
+    .main { grid-template-columns: 1fr; }
+    .spin-panel { flex-direction: row; flex-wrap: wrap; padding: 20px; border-right: none; border-bottom: 2px solid rgba(255,255,255,0.05); }
+    .tumbler { width: 160px; height: 160px; }
+    .tumbler-ball { width: 24px; height: 24px; font-size: 0.5rem; }
+    .called-ball { width: 100px; height: 100px; font-size: 2.2rem; }
+    :root { --ball-size: 100px; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>B I N G O</h1>
+  <div class="header-controls">
+    <span class="called-count" id="calledCount"></span>
+    <a href="cards.html" class="btn" style="background:var(--blue);color:#fff;text-decoration:none">Print Cards</a>
+    <button class="btn btn-danger" id="newGameBtn">New Game</button>
+  </div>
+</header>
+
+<div class="main">
+  <div class="spin-panel">
+    <div class="tumbler" id="tumbler"></div>
+    <div class="called-ball-area">
+      <div class="called-ball" id="calledBall">
+        <span class="ball-letter" id="ballLetter"></span>
+        <span class="ball-number" id="ballNumber"></span>
+      </div>
+      <div class="call-phrase" id="callPhrase"></div>
+    </div>
+    <button class="spin-btn" id="spinBtn">SPIN</button>
+  </div>
+  <div class="board-area">
+    <div class="last-called-strip" id="lastCalledStrip">
+      <span class="last-called-label">Last called:</span>
+    </div>
+    <div class="board-header-row" id="boardHeader"></div>
+    <div class="board-grid" id="boardGrid"></div>
+  </div>
+</div>
+
+<!-- New game overlay -->
+<div class="overlay hidden" id="newGameOverlay">
+  <div class="overlay-box">
+    <h2>NEW GAME</h2>
+    <p style="color:var(--muted)">Choose your game type</p>
+    <div class="game-type-btns">
+      <button class="game-type-btn" data-size="75" onclick="selectGameType(75)">
+        75 Ball<br><small style="color:var(--muted)">B-I-N-G-O</small>
+      </button>
+      <button class="game-type-btn" data-size="90" onclick="selectGameType(90)">
+        90 Ball<br><small style="color:var(--muted)">UK Style</small>
+      </button>
+    </div>
+    <button class="btn btn-primary" id="startGameBtn" disabled>Start Game</button>
+  </div>
+</div>
+
+<!-- Confirm overlay -->
+<div class="confirm-overlay" id="confirmOverlay">
+  <div class="confirm-box">
+    <p>End the current game and start a new one?</p>
+    <div class="confirm-btns">
+      <button class="btn btn-danger" id="confirmYes">Yes, New Game</button>
+      <button class="btn" style="background:var(--muted);color:#fff" id="confirmNo">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ══════════════════════════════════════════
+// BINGO CALLS
+// ══════════════════════════════════════════
+const CALLS = {
+  1: "Kelly's Eye", 2: "One Little Duck", 3: "Cup of Tea", 4: "Knock at the Door",
+  5: "Man Alive", 6: "Half a Dozen", 7: "Lucky Seven", 8: "Garden Gate",
+  9: "Doctor's Orders", 10: "Big Fat Hen", 11: "Legs Eleven", 12: "One Dozen",
+  13: "Unlucky for Some", 14: "Valentine's Day", 15: "Young and Keen",
+  16: "Sweet Sixteen", 17: "Dancing Queen", 18: "Coming of Age", 19: "Goodbye Teens",
+  20: "One Score", 21: "Royal Salute", 22: "Two Little Ducks", 23: "Thee and Me",
+  24: "Two Dozen", 25: "Duck and Dive", 26: "Pick and Mix", 27: "Gateway to Heaven",
+  28: "Over Weight", 29: "Rise and Shine", 30: "Dirty Gertie", 31: "Get Up and Run",
+  32: "Buckle My Shoe", 33: "All the Threes", 34: "Ask for More",
+  35: "Jump and Jive", 36: "Three Dozen", 37: "More than Eleven",
+  38: "Christmas Cake", 39: "Steps", 40: "Naughty Forty",
+  41: "Time for Fun", 42: "Winnie the Pooh", 43: "Down on Your Knees",
+  44: "Droopy Drawers", 45: "Halfway There", 46: "Up to Tricks",
+  47: "Four and Seven", 48: "Four Dozen", 49: "PC", 50: "Half a Century",
+  51: "Tweak of the Thumb", 52: "Danny La Rue", 53: "Stuck in the Tree",
+  54: "Clean the Floor", 55: "All the Fives", 56: "Was She Worth It?",
+  57: "Heinz Varieties", 58: "Make Them Wait", 59: "Brighton Line",
+  60: "Five Dozen", 61: "Baker's Bun", 62: "Turn the Screw",
+  63: "Tickle Me", 64: "Red Raw", 65: "Old Age Pension",
+  66: "Clickety Click", 67: "Stairway to Heaven", 68: "Saving Grace",
+  69: "Either Way Up", 70: "Three Score and Ten", 71: "Bang on the Drum",
+  72: "Six Dozen", 73: "Queen Bee", 74: "Hit the Floor", 75: "Big Daddy",
+  76: "Trombones", 77: "Sunset Strip", 78: "Heaven's Gate",
+  79: "One More Time", 80: "Eight and Blank", 81: "Stop and Run",
+  82: "Straight on Through", 83: "Time for Tea", 84: "Seven Dozen",
+  85: "Staying Alive", 86: "Between the Sticks", 87: "Torquay in Devon",
+  88: "Two Fat Ladies", 89: "Nearly There", 90: "Top of the Shop"
+};
+
+// ══════════════════════════════════════════
+// STATE
+// ══════════════════════════════════════════
+let state = {
+  gameSize: null,      // 75 or 90
+  called: [],          // numbers called in order
+  remaining: [],       // numbers not yet called
+  spinning: false
+};
+
+function saveState() {
+  localStorage.setItem('bingoState', JSON.stringify(state));
+}
+function loadState() {
+  const s = localStorage.getItem('bingoState');
+  if (s) {
+    try { state = JSON.parse(s); return true; } catch { return false; }
+  }
+  return false;
+}
+
+// ══════════════════════════════════════════
+// AUDIO (Web Audio API)
+// ══════════════════════════════════════════
+let audioCtx;
+function getAudio() {
+  if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  return audioCtx;
+}
+
+function playTumbleSound(duration) {
+  const ctx = getAudio();
+  const now = ctx.currentTime;
+  // Rattling noise
+  const bufSize = ctx.sampleRate * duration;
+  const buf = ctx.createBuffer(1, bufSize, ctx.sampleRate);
+  const data = buf.getChannelData(0);
+  for (let i = 0; i < bufSize; i++) {
+    // Modulated noise to sound like balls rattling
+    const t = i / ctx.sampleRate;
+    const rattle = Math.sin(t * 120 * Math.PI) * 0.5 + 0.5;
+    data[i] = (Math.random() * 2 - 1) * rattle * 0.15;
+  }
+  const src = ctx.createBufferSource();
+  src.buffer = buf;
+  const gain = ctx.createGain();
+  gain.gain.setValueAtTime(0.3, now);
+  gain.gain.linearRampToValueAtTime(0.05, now + duration);
+  const filter = ctx.createBiquadFilter();
+  filter.type = 'bandpass';
+  filter.frequency.value = 800;
+  filter.Q.value = 1.5;
+  src.connect(filter).connect(gain).connect(ctx.destination);
+  src.start(now);
+  src.stop(now + duration);
+}
+
+function playRevealSound() {
+  const ctx = getAudio();
+  const now = ctx.currentTime;
+  const osc = ctx.createOscillator();
+  const gain = ctx.createGain();
+  osc.type = 'triangle';
+  osc.frequency.setValueAtTime(400, now);
+  osc.frequency.exponentialRampToValueAtTime(800, now + 0.1);
+  osc.frequency.exponentialRampToValueAtTime(600, now + 0.3);
+  gain.gain.setValueAtTime(0.25, now);
+  gain.gain.linearRampToValueAtTime(0, now + 0.5);
+  osc.connect(gain).connect(ctx.destination);
+  osc.start(now);
+  osc.stop(now + 0.5);
+
+  // Second chime
+  const osc2 = ctx.createOscillator();
+  const gain2 = ctx.createGain();
+  osc2.type = 'sine';
+  osc2.frequency.setValueAtTime(1200, now + 0.05);
+  gain2.gain.setValueAtTime(0.15, now + 0.05);
+  gain2.gain.linearRampToValueAtTime(0, now + 0.6);
+  osc2.connect(gain2).connect(ctx.destination);
+  osc2.start(now + 0.05);
+  osc2.stop(now + 0.6);
+}
+
+// ══════════════════════════════════════════
+// TUMBLER VISUALS
+// ══════════════════════════════════════════
+const BALL_COLOURS = ['#e74c3c','#3498db','#2ecc71','#e67e22','#9b59b6','#1abc9c','#f39c12','#e84393'];
+
+function initTumbler() {
+  const tumbler = document.getElementById('tumbler');
+  tumbler.innerHTML = '';
+  const count = 12;
+  for (let i = 0; i < count; i++) {
+    const ball = document.createElement('div');
+    ball.className = 'tumbler-ball';
+    ball.style.background = `radial-gradient(circle at 35% 35%, ${lighten(BALL_COLOURS[i % BALL_COLOURS.length])}, ${BALL_COLOURS[i % BALL_COLOURS.length]})`;
+    // Random positions inside circle
+    const angle = (i / count) * Math.PI * 2;
+    const r = 60 + Math.random() * 40;
+    const x = 130 + Math.cos(angle) * r * 0.6 - 18;
+    const y = 130 + Math.sin(angle) * r * 0.6 - 18;
+    ball.style.left = x + 'px';
+    ball.style.top = y + 'px';
+    // Random text
+    if (state.remaining.length > 0) {
+      ball.textContent = state.remaining[Math.floor(Math.random() * state.remaining.length)];
+    }
+    tumbler.appendChild(ball);
+  }
+}
+
+function lighten(hex) {
+  const r = parseInt(hex.slice(1,3),16), g = parseInt(hex.slice(3,5),16), b = parseInt(hex.slice(5,7),16);
+  return `rgb(${Math.min(255,r+80)},${Math.min(255,g+80)},${Math.min(255,b+80)})`;
+}
+
+function spinTumbler(duration) {
+  const tumbler = document.getElementById('tumbler');
+  const balls = tumbler.querySelectorAll('.tumbler-ball');
+  tumbler.classList.add('spinning');
+  balls.forEach(ball => {
+    ball.style.setProperty('--duration', duration + 's');
+    ball.style.setProperty('--dx1', (Math.random()*100-50)+'px');
+    ball.style.setProperty('--dy1', (Math.random()*100-50)+'px');
+    ball.style.setProperty('--dx2', (Math.random()*100-50)+'px');
+    ball.style.setProperty('--dy2', (Math.random()*100-50)+'px');
+    ball.style.setProperty('--dx3', (Math.random()*100-50)+'px');
+    ball.style.setProperty('--dy3', (Math.random()*100-50)+'px');
+  });
+  setTimeout(() => {
+    tumbler.classList.remove('spinning');
+    initTumbler();
+  }, duration * 1000);
+}
+
+// ══════════════════════════════════════════
+// BOARD RENDERING
+// ══════════════════════════════════════════
+function getColumnFor75(n) {
+  if (n <= 15) return 'b';
+  if (n <= 30) return 'i';
+  if (n <= 45) return 'n';
+  if (n <= 60) return 'g';
+  return 'o';
+}
+
+function renderBoard() {
+  const header = document.getElementById('boardHeader');
+  const grid = document.getElementById('boardGrid');
+  header.innerHTML = '';
+  grid.innerHTML = '';
+
+  const calledSet = new Set(state.called);
+
+  if (state.gameSize === 75) {
+    header.className = 'board-header-row cols-5';
+    grid.className = 'board-grid cols-5';
+    const cols = ['B','I','N','G','O'];
+    const colClass = ['col-b','col-i','col-n','col-g','col-o'];
+
+    cols.forEach((letter, i) => {
+      const h = document.createElement('div');
+      h.className = `board-header-cell ${colClass[i]}`;
+      h.textContent = letter;
+      header.appendChild(h);
+    });
+
+    // 15 rows x 5 cols
+    for (let row = 0; row < 15; row++) {
+      cols.forEach((_, ci) => {
+        const n = ci * 15 + row + 1;
+        const cell = document.createElement('div');
+        cell.className = `board-cell ${colClass[ci]} cell-bg`;
+        cell.textContent = n;
+        cell.id = 'cell-' + n;
+        if (calledSet.has(n)) cell.classList.add('called');
+        grid.appendChild(cell);
+      });
+    }
+  } else {
+    // 90-ball: 9 columns (1-10, 11-20, ... 81-90)
+    header.className = 'board-header-row cols-9';
+    grid.className = 'board-grid cols-9';
+
+    for (let c = 0; c < 9; c++) {
+      const h = document.createElement('div');
+      h.className = `board-header-cell dec-${c} dec-header`;
+      h.textContent = c === 0 ? '1-10' : `${c*10+1}-${(c+1)*10}`;
+      header.appendChild(h);
+    }
+
+    for (let row = 0; row < 10; row++) {
+      for (let col = 0; col < 9; col++) {
+        const n = col * 10 + row + 1;
+        if (n > 90) {
+          const blank = document.createElement('div');
+          blank.className = 'board-cell';
+          grid.appendChild(blank);
+          continue;
+        }
+        const cell = document.createElement('div');
+        cell.className = `board-cell dec-${col} cell-bg`;
+        cell.textContent = n;
+        cell.id = 'cell-' + n;
+        if (calledSet.has(n)) cell.classList.add('called');
+        grid.appendChild(cell);
+      }
+    }
+  }
+}
+
+function renderLastCalled() {
+  const strip = document.getElementById('lastCalledStrip');
+  strip.innerHTML = '<span class="last-called-label">Last called:</span>';
+  const recent = state.called.slice(-10).reverse();
+  recent.forEach((n, i) => {
+    const ball = document.createElement('div');
+    ball.className = 'mini-ball';
+    ball.textContent = n;
+    ball.style.background = getBallColour(n);
+    ball.style.opacity = i === 0 ? 1 : Math.max(0.4, 1 - i * 0.08);
+    strip.appendChild(ball);
+  });
+}
+
+function updateCount() {
+  document.getElementById('calledCount').textContent =
+    state.gameSize ? `${state.called.length} / ${state.gameSize} called` : '';
+}
+
+function getBallColour(n) {
+  if (state.gameSize === 75) {
+    if (n <= 15) return 'var(--blue)';
+    if (n <= 30) return 'var(--red)';
+    if (n <= 45) return 'var(--purple)';
+    if (n <= 60) return 'var(--green)';
+    return 'var(--orange)';
+  }
+  const col = Math.floor((n - 1) / 10);
+  const colours = ['#e74c3c','#e67e22','#f1c40f','#2ecc71','#1abc9c','#3498db','#9b59b6','#e84393','#fd79a8'];
+  return colours[col] || '#95a5a6';
+}
+
+function getBallLetter(n) {
+  if (state.gameSize !== 75) return '';
+  if (n <= 15) return 'B';
+  if (n <= 30) return 'I';
+  if (n <= 45) return 'N';
+  if (n <= 60) return 'G';
+  return 'O';
+}
+
+// ══════════════════════════════════════════
+// SPIN LOGIC
+// ══════════════════════════════════════════
+function spin() {
+  if (state.spinning || state.remaining.length === 0) return;
+  state.spinning = true;
+  const spinBtn = document.getElementById('spinBtn');
+  spinBtn.disabled = true;
+
+  // Pick random number
+  const idx = Math.floor(Math.random() * state.remaining.length);
+  const number = state.remaining[idx];
+  state.remaining.splice(idx, 1);
+  state.called.push(number);
+  saveState();
+
+  // Hide current ball
+  const calledBall = document.getElementById('calledBall');
+  const callPhrase = document.getElementById('callPhrase');
+  calledBall.classList.remove('visible');
+  callPhrase.classList.remove('visible');
+
+  // Tumble animation
+  const spinDuration = 5;
+  spinTumbler(spinDuration);
+  playTumbleSound(spinDuration);
+
+  setTimeout(() => {
+    // Reveal
+    playRevealSound();
+
+    const letter = getBallLetter(number);
+    document.getElementById('ballLetter').textContent = letter;
+    document.getElementById('ballNumber').textContent = number;
+    calledBall.style.background = `radial-gradient(circle at 35% 35%, ${lighten(getComputedBallColour(number))}, ${getComputedBallColour(number)})`;
+    calledBall.classList.add('visible');
+
+    const phrase = CALLS[number];
+    if (phrase) {
+      callPhrase.textContent = `${number} — ${phrase}`;
+      setTimeout(() => callPhrase.classList.add('visible'), 200);
+    }
+
+    // Update board
+    const cell = document.getElementById('cell-' + number);
+    if (cell) {
+      cell.classList.add('called', 'just-called');
+    }
+    renderLastCalled();
+    updateCount();
+
+    state.spinning = false;
+    spinBtn.disabled = state.remaining.length === 0;
+    if (state.remaining.length === 0) spinBtn.textContent = 'DONE';
+  }, spinDuration * 1000 + 300);
+}
+
+function getComputedBallColour(n) {
+  if (state.gameSize === 75) {
+    if (n <= 15) return '#2980b9';
+    if (n <= 30) return '#c0392b';
+    if (n <= 45) return '#8e44ad';
+    if (n <= 60) return '#27ae60';
+    return '#e67e22';
+  }
+  const col = Math.floor((n - 1) / 10);
+  return ['#e74c3c','#e67e22','#f1c40f','#2ecc71','#1abc9c','#3498db','#9b59b6','#e84393','#fd79a8'][col] || '#95a5a6';
+}
+
+// ══════════════════════════════════════════
+// GAME MANAGEMENT
+// ══════════════════════════════════════════
+let selectedSize = null;
+
+function selectGameType(size) {
+  selectedSize = size;
+  document.querySelectorAll('.game-type-btn').forEach(b => {
+    b.classList.toggle('selected', parseInt(b.dataset.size) === size);
+  });
+  document.getElementById('startGameBtn').disabled = false;
+}
+
+function startNewGame(size) {
+  state.gameSize = size;
+  state.called = [];
+  state.remaining = [];
+  for (let i = 1; i <= size; i++) state.remaining.push(i);
+  state.spinning = false;
+  saveState();
+
+  document.getElementById('newGameOverlay').classList.add('hidden');
+  document.getElementById('spinBtn').disabled = false;
+  document.getElementById('spinBtn').textContent = 'SPIN';
+
+  // Reset display
+  document.getElementById('calledBall').classList.remove('visible');
+  document.getElementById('callPhrase').classList.remove('visible');
+
+  renderBoard();
+  renderLastCalled();
+  updateCount();
+  initTumbler();
+
+  // Reset selection
+  selectedSize = null;
+  document.querySelectorAll('.game-type-btn').forEach(b => b.classList.remove('selected'));
+  document.getElementById('startGameBtn').disabled = true;
+}
+
+// ══════════════════════════════════════════
+// EVENT HANDLERS
+// ══════════════════════════════════════════
+document.getElementById('spinBtn').addEventListener('click', spin);
+
+document.getElementById('newGameBtn').addEventListener('click', () => {
+  if (state.called.length > 0) {
+    document.getElementById('confirmOverlay').classList.add('show');
+  } else {
+    document.getElementById('newGameOverlay').classList.remove('hidden');
+  }
+});
+
+document.getElementById('confirmYes').addEventListener('click', () => {
+  document.getElementById('confirmOverlay').classList.remove('show');
+  document.getElementById('newGameOverlay').classList.remove('hidden');
+});
+document.getElementById('confirmNo').addEventListener('click', () => {
+  document.getElementById('confirmOverlay').classList.remove('show');
+});
+
+document.getElementById('startGameBtn').addEventListener('click', () => {
+  if (selectedSize) startNewGame(selectedSize);
+});
+
+// Keyboard: space to spin
+document.addEventListener('keydown', e => {
+  if (e.code === 'Space') {
+    e.preventDefault();
+    if (!state.spinning && document.getElementById('newGameOverlay').classList.contains('hidden') && !document.getElementById('confirmOverlay').classList.contains('show')) {
+      spin();
+    }
+  }
+});
+
+// ══════════════════════════════════════════
+// INIT
+// ══════════════════════════════════════════
+(function init() {
+  if (loadState() && state.gameSize) {
+    // Always reset transient state
+    state.spinning = false;
+    saveState();
+
+    // Restore existing game
+    renderBoard();
+    renderLastCalled();
+    updateCount();
+    initTumbler();
+
+    // Show last called ball if any
+    if (state.called.length > 0) {
+      const last = state.called[state.called.length - 1];
+      document.getElementById('ballLetter').textContent = getBallLetter(last);
+      document.getElementById('ballNumber').textContent = last;
+      document.getElementById('calledBall').style.background =
+        `radial-gradient(circle at 35% 35%, ${lighten(getComputedBallColour(last))}, ${getComputedBallColour(last)})`;
+      document.getElementById('calledBall').classList.add('visible');
+      const phrase = CALLS[last];
+      if (phrase) {
+        document.getElementById('callPhrase').textContent = `${last} — ${phrase}`;
+        document.getElementById('callPhrase').classList.add('visible');
+      }
+    }
+
+    document.getElementById('spinBtn').disabled = state.remaining.length === 0;
+    if (state.remaining.length === 0) document.getElementById('spinBtn').textContent = 'DONE';
+  } else {
+    // No game — show new game overlay
+    document.getElementById('newGameOverlay').classList.remove('hidden');
+  }
+})();
+</script>
+</body>
+</html>
